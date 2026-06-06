@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Aureole Operations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 font-sans">
+    <main class="max-w-6xl mx-auto p-5 md:py-10">
+        <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+                <p class="text-[11px] tracking-[0.3em] text-slate-500 font-bold">PRIVATE OPERATIONS</p>
+                <h1 class="text-2xl font-black">Aureole Operations Portal</h1>
+                <p class="text-xs text-slate-500 mt-2">公開画面からリンクしていない運営用URLです。実際の保護はFirebase AuthとFirestore Rulesで行います。</p>
+            </div>
+            <div id="auth-status" class="text-xs bg-slate-900 border border-slate-800 rounded-lg px-3 py-2">接続中...</div>
+        </header>
+
+        <section id="ops-guard" class="rounded-xl border border-red-900/50 bg-red-950/30 p-6 text-center">
+            <h2 class="text-lg font-bold text-red-200">アクセスできません</h2>
+            <p class="text-sm text-red-100/70 mt-2">この画面はアレオル以上の権限を持つログインユーザー専用です。</p>
+            <button onclick="beginLoginFlow('login')" class="mt-4 rounded-lg bg-white px-4 py-2 text-xs font-bold text-slate-950">ログイン</button>
+        </section>
+
+        <section id="ops-panel" class="hidden">
+            <div class="mb-4 flex flex-wrap gap-2">
+                <button data-ops-tab="announcements" class="ops-tab-btn bg-slate-700 rounded-lg px-3 py-2 text-xs font-bold">お知らせ</button>
+                <button data-ops-tab="events" class="ops-tab-btn bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-bold">イベント</button>
+                <button data-ops-tab="invites" class="ops-tab-btn bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-bold">会員ID</button>
+                <button data-ops-tab="surveys" class="ops-tab-btn bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-bold">アンケート</button>
+                <button data-ops-tab="logs" class="ops-tab-btn bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-bold">実行ログ</button>
+            </div>
+
+            <section id="ops-tab-announcements" class="ops-tab-panel grid md:grid-cols-[1fr_1.1fr] gap-5">
+                <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+                    <h2 class="text-sm font-bold text-white">管理者よりお知らせ</h2>
+                    <input id="ops-announcement-title" maxlength="60" class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="タイトル">
+                    <textarea id="ops-announcement-body" maxlength="500" rows="5" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="本文"></textarea>
+                    <input id="ops-announcement-url" maxlength="1000" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="添付URL（任意）">
+                    <div class="mt-3 grid gap-2 text-xs text-slate-300">
+                        <label><input type="radio" name="ops-announcement-publish" value="now" checked> 今すぐ公開</label>
+                        <label><input type="radio" name="ops-announcement-publish" value="scheduled"> 指定時刻に公開</label>
+                        <input id="ops-announcement-scheduled" type="datetime-local" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                    </div>
+                    <button onclick="addAnnouncementFromOps()" class="mt-3 w-full rounded-lg bg-sky-500 py-2 text-xs font-bold text-white hover:bg-sky-600">投稿する</button>
+                </div>
+                <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 overflow-x-auto">
+                    <h3 class="text-sm font-bold text-white">過去ログ</h3>
+                    <table class="mt-3 w-full text-xs text-left">
+                        <thead class="text-slate-500"><tr><th class="py-2 pr-3">タイトル</th><th class="py-2 pr-3">公開</th><th class="py-2 pr-3">URL</th><th class="py-2">削除</th></tr></thead>
+                        <tbody id="ops-announcement-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="ops-tab-events" class="ops-tab-panel hidden grid md:grid-cols-[1fr_1.1fr] gap-5">
+                <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+                    <h2 class="text-sm font-bold text-white">イベント管理</h2>
+                    <input id="ops-event-title" maxlength="60" class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="イベント名">
+                    <textarea id="ops-event-body" maxlength="800" rows="5" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="イベント内容・ゲーム実装メモなど"></textarea>
+                    <div class="mt-2 grid grid-cols-2 gap-2">
+                        <select id="ops-event-type" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                            <option value="notice">告知</option>
+                            <option value="survey">アンケート</option>
+                            <option value="game">ゲーム</option>
+                            <option value="custom-js">JavaScript企画</option>
+                        </select>
+                        <select id="ops-event-status" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                            <option value="active">公開中</option>
+                            <option value="draft">下書き</option>
+                            <option value="archived">過去ログ</option>
+                        </select>
+                    </div>
+                    <button onclick="addEventFromOps()" class="mt-3 w-full rounded-lg bg-violet-500 py-2 text-xs font-bold text-white hover:bg-violet-600">イベントを追加</button>
+                    <div class="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-3">
+                        <p class="text-xs font-bold text-white">ゲームコード編集</p>
+                        <p class="mt-1 text-[11px] text-slate-500">StarRunner.js は表側の独立ファイルです。ここではFirebaseへ下書きコードを保存し、実装時にファイルへ反映します。</p>
+                        <textarea id="ops-game-code-editor" rows="10" spellcheck="false" class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-[11px] text-slate-200" placeholder="// StarRunner.js の下書きコード"></textarea>
+                        <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
+                            <button onclick="loadGameScriptDraft()" class="rounded bg-slate-800 px-3 py-2 hover:bg-slate-700">下書きを読み込む</button>
+                            <button onclick="saveGameScriptDraft()" class="rounded bg-violet-600 px-3 py-2 font-bold text-white hover:bg-violet-500">下書きを保存</button>
+                        </div>
+                        <div id="ops-game-debug-log" class="mt-2 text-[11px] text-slate-500">待機中</div>
+                    </div>
+                </div>
+                <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 overflow-x-auto">
+                    <h3 class="text-sm font-bold text-white">過去ログ</h3>
+                    <table class="mt-3 w-full text-xs text-left">
+                        <thead class="text-slate-500"><tr><th class="py-2 pr-3">イベント</th><th class="py-2 pr-3">種別</th><th class="py-2 pr-3">状態</th><th class="py-2">削除</th></tr></thead>
+                        <tbody id="ops-event-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="ops-tab-invites" class="ops-tab-panel hidden grid md:grid-cols-[1fr_1.1fr] gap-5">
+                <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+                    <h2 class="text-sm font-bold text-white">会員ID発行</h2>
+                    <p class="mt-1 text-xs text-slate-500">4桁-4桁-4桁で入力してください。Gmailアドレスとの照合に使います。</p>
+                    <input id="ops-invite-email" type="email" class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="登録対象のGmailアドレス">
+                    <div class="mt-2 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
+                        <input id="ops-invite-code-1" maxlength="4" class="ops-invite-code-part uppercase text-center rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="XXXX">
+                        <span class="text-slate-500">-</span>
+                        <input id="ops-invite-code-2" maxlength="4" class="ops-invite-code-part uppercase text-center rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="XXXX">
+                        <span class="text-slate-500">-</span>
+                        <input id="ops-invite-code-3" maxlength="4" class="ops-invite-code-part uppercase text-center rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="XXXX">
+                    </div>
+                    <select id="ops-invite-role" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm">
+                        <option value="fan">ファン</option>
+                        <option value="aureole">アレオル</option>
+                        <option value="admin">管理者</option>
+                    </select>
+                    <button onclick="createInviteCodeFromOps()" class="mt-3 w-full rounded-lg bg-amber-500 py-2 text-xs font-bold text-white hover:bg-amber-600">発行する</button>
+                    <div id="ops-live-log" class="mt-3 hidden rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-300"></div>
+                    <textarea id="ops-invite-copy-text" rows="7" readonly class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-300" placeholder="発行後、送信用文面がここに作成されます。"></textarea>
+                    <button onclick="copyInviteText()" class="mt-2 w-full rounded-lg border border-slate-700 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800">文面をコピー</button>
+                </div>
+                <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 overflow-x-auto">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-white">発行ログ（マスク表示）</h3>
+                        <button onclick="loadInviteLogsForOps()" class="rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-300">再読み込み</button>
+                    </div>
+                    <table class="mt-3 w-full text-xs text-left">
+                        <thead class="text-slate-500"><tr><th class="py-2 pr-3">会員ID</th><th class="py-2 pr-3">権限</th><th class="py-2 pr-3">状態</th><th class="py-2 pr-3">メール</th><th class="py-2">削除</th></tr></thead>
+                        <tbody id="ops-invite-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="ops-tab-surveys" class="ops-tab-panel hidden rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+                <h2 class="text-sm font-bold text-white">登録アンケート結果</h2>
+                <div id="ops-survey-list" class="mt-3 grid gap-2"><p class="text-xs text-slate-500">読み込み中...</p></div>
+                <div class="mt-4 overflow-x-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead class="text-slate-500"><tr><th class="py-2 pr-3">メール</th><th class="py-2 pr-3">生年月日</th><th class="py-2 pr-3">性別</th><th class="py-2 pr-3">端末</th><th class="py-2">きっかけ</th></tr></thead>
+                        <tbody id="ops-survey-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="ops-tab-logs" class="ops-tab-panel hidden rounded-xl border border-slate-800 bg-slate-900/70 p-4 overflow-x-auto">
+                <h2 class="text-sm font-bold text-white">実行ログ</h2>
+                <div id="ops-log-list" class="mt-3 grid gap-1"></div>
+                <table class="mt-4 w-full text-xs text-left">
+                    <thead class="text-slate-500"><tr><th class="py-2 pr-3">操作</th><th class="py-2 pr-3">実行者</th><th class="py-2 pr-3">時刻</th><th class="py-2">削除</th></tr></thead>
+                    <tbody id="ops-log-table"></tbody>
+                </table>
+            </section>
+        </section>
+    </main>
+    <script src="app.js"></script>
+    <script src="StarRunner.js"></script>
+</body>
+</html>

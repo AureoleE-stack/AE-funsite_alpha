@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Aureole Etoile Fan Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-sky-50 text-gray-800 min-h-screen font-sans overflow-x-hidden">
+    <div id="sidebar" class="fixed top-0 left-0 h-full w-64 bg-white shadow-2xl transform -translate-x-full transition-transform duration-300 ease-in-out z-50 border-r border-sky-100 flex flex-col justify-between">
+        <div>
+            <div class="p-5 bg-gradient-to-r from-sky-400 to-yellow-300 text-white flex justify-between items-center">
+                <span class="font-bold text-lg">Aureole Fan Hub</span>
+                <button id="close-btn" class="text-white hover:text-gray-200 text-xl"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-4 bg-yellow-50 border-b border-yellow-100">
+                <div class="flex justify-between text-xs font-bold text-yellow-700 mb-1">
+                    <span><i class="fas fa-trophy mr-1"></i>探索度</span>
+                    <span id="explore-percent">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                    <div id="explore-bar" class="bg-yellow-400 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+            <nav class="p-2 space-y-1">
+                <button onclick="switchWindow('home')" class="w-full text-left px-4 py-2.5 rounded-lg font-bold text-sky-700 hover:bg-sky-50 transition-colors flex items-center gap-3"><i class="fas fa-home w-5"></i>ホーム</button>
+                <button onclick="switchWindow('about')" class="w-full text-left px-4 py-2.5 rounded-lg font-bold text-sky-700 hover:bg-sky-50 transition-colors flex items-center gap-3"><i class="fas fa-star w-5"></i>アレオルとは？</button>
+                <button onclick="switchWindow('timeline')" class="w-full text-left px-4 py-2.5 rounded-lg font-bold text-sky-700 hover:bg-sky-50 transition-colors flex items-center gap-3"><i class="fas fa-comments w-5"></i>タイムライン</button>
+                <button onclick="switchWindow('events')" class="w-full text-left px-4 py-2.5 rounded-lg font-bold text-sky-700 hover:bg-sky-50 transition-colors flex items-center gap-3"><i class="fas fa-calendar-alt w-5"></i>イベント</button>
+                <button onclick="switchWindow('survey')" class="w-full text-left px-4 py-2.5 rounded-lg font-bold text-sky-700 hover:bg-sky-50 transition-colors flex items-center gap-3"><i class="fas fa-poll w-5"></i>アンケート</button>
+                <button onclick="switchWindow('terms')" class="w-full text-left px-4 py-2.5 rounded-lg font-bold text-sky-700 hover:bg-sky-50 transition-colors flex items-center gap-3"><i class="fas fa-file-contract w-5"></i>利用規約</button>
+                <button id="settings-nav-btn" onclick="switchWindow('settings')" class="w-full text-left px-4 py-2.5 rounded-lg font-bold text-gray-400 bg-gray-50 cursor-not-allowed flex items-center gap-3"><i class="fas fa-cog w-5"></i>設定</button>
+                <button onclick="switchWindow('contact')" class="w-full text-left px-4 py-2.5 rounded-lg font-bold text-sky-700 hover:bg-sky-50 transition-colors flex items-center gap-3"><i class="fas fa-envelope w-5"></i>お問い合わせ</button>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-gray-100 bg-gray-50">
+            <button id="sidebar-auth-btn" onclick="openLoginChoice()" class="w-full text-center py-2 text-xs bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 transition-colors font-bold flex items-center justify-center gap-2">
+                <i class="fas fa-right-to-bracket text-sky-500"></i>ログイン
+            </button>
+        </div>
+    </div>
+
+    <div id="overlay" class="fixed inset-0 bg-black/30 opacity-0 pointer-events-none transition-opacity duration-300 z-40"></div>
+    <div id="login-choice-modal" class="fixed inset-0 bg-slate-950/60 hidden items-center justify-center z-[60] p-4">
+        <div class="w-full max-w-sm bg-white rounded-xl shadow-2xl border border-slate-200 p-5">
+            <p class="text-[11px] tracking-[0.25em] text-slate-400 font-bold">ACCOUNT</p>
+            <h2 class="text-lg font-bold text-slate-900 mt-1">ログイン</h2>
+            <p class="text-xs text-slate-500 mt-2">Googleで本人確認を行い、サービス側のアカウント情報と照合します。</p>
+            <div class="grid gap-2 mt-5">
+                <button onclick="beginLoginFlow('login')" class="w-full rounded-lg bg-slate-900 text-white text-sm font-bold py-3 hover:bg-slate-800">アカウントを持っている</button>
+                <button onclick="beginLoginFlow('register')" class="w-full rounded-lg bg-sky-500 text-white text-sm font-bold py-3 hover:bg-sky-600">新規登録する</button>
+                <button onclick="closeLoginChoice()" class="w-full rounded-lg border border-slate-200 text-slate-500 text-xs font-bold py-2 hover:bg-slate-50">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="bg-gradient-to-r from-sky-400 to-sky-300 text-white p-4 sticky top-0 z-30 shadow-md">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <button id="menu-btn" class="text-white text-xl p-2 hover:bg-sky-500/20 rounded-lg"><i class="fas fa-bars"></i></button>
+                <h1 onclick="switchWindow('home')" class="text-xl font-bold tracking-wider text-yellow-100 cursor-pointer hover:text-white transition-colors">Aureole Etoile Fan Hub</h1>
+            </div>
+            <div id="auth-status" class="flex items-center gap-2 text-xs bg-sky-500/25 px-2 py-1 rounded-xl border border-sky-200/30">
+                <span class="text-sky-100">接続中...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-2xl mx-auto p-4 md:py-8">
+        <section id="window-home" class="window-content space-y-6">
+            <div class="bg-white border-2 border-yellow-300 rounded-2xl overflow-hidden shadow-sm">
+                <img id="home-youtube-thumb" src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60" alt="YouTube thumbnail" class="w-full h-48 object-cover">
+                <div class="p-5">
+                    <span id="home-youtube-badge" class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded tracking-wider animate-pulse">UPCOMING</span>
+                    <h2 id="home-youtube-title" class="text-xl font-bold mt-2 text-sky-900">YouTube情報を読み込み中...</h2>
+                    <p id="home-youtube-date" class="text-sm text-gray-500 mt-1"><i class="far fa-calendar-alt mr-1"></i>API設定待ち</p>
+                    <a id="home-youtube-link" href="https://www.youtube.com/@-aureoleetoile-6660" target="_blank" rel="noopener noreferrer" class="group relative mt-4 w-full text-center block overflow-hidden bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-400 text-sky-900 font-bold py-3 rounded-xl shadow-md transition-all duration-500 ease-out hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-yellow-300">
+                        <span class="absolute inset-0 -translate-x-full bg-white/35 transition-transform duration-700 ease-out group-hover:translate-x-full"></span>
+                        <span class="relative"><i class="fab fa-youtube mr-2"></i>YouTube待機所へ</span>
+                    </a>
+                    <p id="home-youtube-status" class="mt-2 text-[11px] text-gray-400"></p>
+                </div>
+            </div>
+            <button data-secret-location="home" onclick="unlockSecret()" class="group block ml-auto text-[10px] text-sky-100 hover:text-sky-500 focus:text-sky-500 transition-colors">
+                <span data-secret-hint>・</span><span data-secret-value class="ml-1 opacity-0 group-hover:opacity-100 group-focus:opacity-100">クリック</span>
+            </button>
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-sky-100">
+                <h3 class="text-sm font-bold text-sky-800 mb-3"><i class="fas fa-bullhorn mr-1"></i>管理者よりお知らせ</h3>
+                <div id="announcement-list" class="space-y-3"><p class="text-xs text-gray-400">お知らせを読み込み中...</p></div>
+            </div>
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-sky-100">
+                <h3 class="text-sm font-bold text-sky-800 mb-3"><i class="fab fa-x-twitter mr-1"></i>X 関係者ポスト</h3>
+                <div id="x-feed-list" class="space-y-3"><p class="text-xs text-gray-400">登録済みポストを読み込み中...</p></div>
+            </div>
+        </section>
+
+        <section id="window-register" class="window-content hidden">
+            <div class="bg-slate-950 text-slate-100 rounded-xl border border-slate-800 shadow-xl p-5 space-y-5">
+                <div>
+                    <p class="text-[11px] tracking-[0.25em] text-slate-400 font-bold">MEMBER REGISTRATION</p>
+                    <h2 class="text-xl font-bold mt-1">サービスアカウント登録</h2>
+                    <p class="text-xs text-slate-400 mt-2">Google認証後、このサービス用のアカウントを作成します。メールアドレスはGoogleアカウントから取得し、変更できません。</p>
+                </div>
+                <div class="grid gap-3">
+                    <label class="text-xs font-bold text-slate-300">メールアドレス<input id="member-email" type="email" readonly aria-readonly="true" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-400 cursor-not-allowed"></label>
+                    <div>
+                        <p class="text-xs font-bold text-slate-300">会員ID（任意・後から設定可）</p>
+                        <div class="mt-1 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
+                            <input id="member-id-1" type="text" maxlength="4" class="member-id-part uppercase text-center bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="XXXX">
+                            <span class="text-slate-500">-</span>
+                            <input id="member-id-2" type="text" maxlength="4" class="member-id-part uppercase text-center bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="XXXX">
+                            <span class="text-slate-500">-</span>
+                            <input id="member-id-3" type="text" maxlength="4" class="member-id-part uppercase text-center bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="XXXX">
+                        </div>
+                    </div>
+                    <label class="text-xs font-bold text-slate-300">パスワード<input id="member-password" type="password" minlength="8" maxlength="80" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="英字・数字・記号を含む8文字以上"></label>
+                    <p class="text-[11px] text-slate-500">パスワードは平文保存せず、ブラウザ側でハッシュ化して保存します。</p>
+                    <label class="text-xs font-bold text-slate-300">表示名前<input id="member-display-name" type="text" maxlength="40" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="投稿時に表示する名前"></label>
+                    <div>
+                        <label class="text-xs font-bold text-slate-300">アイコン画像<input id="member-icon-file" type="file" accept="image/png,image/jpeg,image/webp" class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm file:bg-slate-700 file:text-white file:border-0 file:rounded file:px-2 file:py-1"></label>
+                        <div id="icon-cropper" class="hidden mt-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
+                            <div class="relative mx-auto h-48 w-48 overflow-hidden rounded-full border-4 border-slate-700 bg-slate-950">
+                                <img id="icon-crop-preview" alt="アイコンプレビュー" class="absolute left-0 top-0 max-w-none select-none">
+                            </div>
+                            <label class="mt-3 block text-xs text-slate-400">拡大<input id="icon-zoom" type="range" min="1" max="2.5" step="0.05" value="1" class="w-full"></label>
+                            <div class="mt-2 grid grid-cols-2 gap-2">
+                                <label class="text-xs text-slate-400">横位置<input id="icon-offset-x" type="range" min="-180" max="180" step="1" value="0" class="w-full"></label>
+                                <label class="text-xs text-slate-400">縦位置<input id="icon-offset-y" type="range" min="-180" max="180" step="1" value="0" class="w-full"></label>
+                            </div>
+                        </div>
+                    </div>
+                    <label class="flex items-start gap-2 text-xs text-slate-300"><input id="survey-opt-in" type="checkbox" class="mt-0.5">初回アンケートに協力する</label>
+                    <div id="survey-fields" class="hidden grid gap-2 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+                        <div class="grid grid-cols-3 gap-2">
+                            <input id="survey-birth-year" inputmode="numeric" maxlength="4" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="西暦">
+                            <input id="survey-birth-month" inputmode="numeric" maxlength="2" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="月">
+                            <input id="survey-birth-day" inputmode="numeric" maxlength="2" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="日">
+                        </div>
+                        <label class="text-xs font-bold text-slate-300">性別<select id="survey-gender" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">未回答</option><option value="male">男</option><option value="female">女</option><option value="other">その他</option></select></label>
+                        <label class="text-xs font-bold text-slate-300">普段よく使用する端末<select id="survey-device" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">未回答</option><option value="pc">PC</option><option value="smartphone">スマートフォン</option><option value="tablet">タブレット</option><option value="other">その他</option></select></label>
+                        <input id="survey-device-other" maxlength="40" class="hidden bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="その他の端末">
+                        <label class="text-xs font-bold text-slate-300">どうやってアレオルを知りましたか？<textarea id="survey-discovery" maxlength="300" rows="2" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="自由回答"></textarea></label>
+                    </div>
+                </div>
+                <button onclick="saveMemberRegistration()" class="w-full bg-white text-slate-950 font-bold py-3 rounded-lg hover:bg-slate-200">登録する</button>
+            </div>
+        </section>
+
+        <section id="window-about" class="window-content hidden max-w-xl mx-auto p-4 space-y-4">
+            <h2 class="text-lg font-bold text-sky-800 border-b pb-2">アレオルとは？</h2>
+            <p class="text-sm text-gray-600 leading-relaxed">Aureole Etoileは、光り輝く星々のような個性が集まる、今大注目の次世代グループです。<span onclick="openPasswordModal()" class="text-gray-300 cursor-pointer select-none hover:text-sky-400">（こっそり）</span></p>
+            <button data-secret-location="about" onclick="discoverKeyword('about', '空')" class="block ml-auto text-[10px] text-gray-100 hover:text-sky-400 focus:text-sky-400"><span data-secret-hint>・</span><span data-secret-value class="sr-only">クリック</span></button>
+        </section>
+
+        <section id="window-timeline" class="window-content space-y-6 hidden">
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-sky-100">
+                <p class="text-sm font-bold mb-2 text-sky-800"><i class="fas fa-pen mr-1"></i>見どころや感想を共有</p>
+                <textarea id="post-text" maxlength="200" class="w-full bg-sky-50/50 border border-sky-100 rounded-xl p-3 text-sm focus:outline-none focus:border-sky-400" rows="2" placeholder="例：ここのプレイは神がかってる！"></textarea>
+                <div class="mt-1 text-right text-[11px] text-gray-400">残り <span id="post-remaining">200</span> 文字</div>
+                <div class="flex flex-col sm:flex-row justify-between items-end sm:items-center gap-2 mt-2">
+                    <input id="post-url" type="text" class="bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-1.5 text-xs w-full sm:w-72 focus:outline-none focus:border-sky-400" placeholder="YouTube動画URL">
+                    <button onclick="addPost()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition-colors w-full sm:w-auto">共有する</button>
+                </div>
+            </div>
+            <div id="timeline-list" class="space-y-4"></div>
+            <button data-secret-location="timeline" onclick="discoverKeyword('timeline', 'い')" class="block mx-auto text-[10px] text-sky-50 hover:text-sky-300 focus:text-sky-300"><span data-secret-hint>・</span><span data-secret-value class="sr-only">クリック</span></button>
+        </section>
+
+        <section id="window-events" class="window-content space-y-6 hidden">
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-sky-100">
+                <h3 class="font-bold text-sky-900 border-b pb-2"><i class="fas fa-vote-yea text-sky-500 mr-1"></i>開催中のイベント</h3>
+                <div id="events-list" class="mt-4 space-y-3"><p class="text-xs text-gray-400">イベントを読み込み中...</p></div>
+                <div id="star-runner-event-box" class="mt-5 rounded-2xl border border-sky-100 bg-sky-50/60 p-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h3 class="font-bold text-sky-900"><i class="fas fa-gamepad text-sky-500 mr-1"></i>ミニゲーム: Star Runner</h3>
+                            <p class="text-xs text-gray-500 mt-1">開催中イベント内のミニゲームです。長押しでジャンプの高さが変わります。</p>
+                        </div>
+                        <button onclick="startRunnerGame()" class="bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold px-4 py-2 rounded-xl">開始</button>
+                    </div>
+                    <canvas id="runner-game" width="640" height="220" class="mt-4 w-full rounded-xl border border-sky-100 bg-sky-50"></canvas>
+                    <div class="mt-2 flex justify-between text-xs text-gray-500">
+                        <span>Score: <span id="runner-score">0</span></span>
+                        <span id="runner-status">待機中</span>
+                    </div>
+                </div>
+            </div>
+            <button data-secret-location="events" onclick="discoverKeyword('events', 'ね')" class="block ml-3 text-[10px] text-sky-50 hover:text-sky-300 focus:text-sky-300"><span data-secret-hint>・</span><span data-secret-value class="sr-only">クリック</span></button>
+        </section>
+
+        <section id="window-survey" class="window-content hidden space-y-6">
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-sky-100">
+                <h2 class="text-lg font-bold text-sky-800 border-b pb-2"><i class="fas fa-poll mr-2"></i>アンケート</h2>
+                <p class="mt-3 text-xs text-gray-500">回答はログイン中のGoogleアカウントのメールアドレスに紐づいて保存されます。回答は任意です。</p>
+                <div class="mt-4 grid gap-3">
+                    <div>
+                        <p class="text-xs font-bold text-gray-600">生年月日</p>
+                        <div class="mt-1 grid grid-cols-3 gap-2">
+                            <input id="standalone-survey-birth-year" inputmode="numeric" maxlength="4" class="bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="西暦">
+                            <input id="standalone-survey-birth-month" inputmode="numeric" maxlength="2" class="bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="月">
+                            <input id="standalone-survey-birth-day" inputmode="numeric" maxlength="2" class="bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="日">
+                        </div>
+                    </div>
+                    <label class="text-xs font-bold text-gray-600">性別<select id="standalone-survey-gender" class="mt-1 w-full bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm"><option value="">未回答</option><option value="male">男</option><option value="female">女</option><option value="other">その他</option></select></label>
+                    <label class="text-xs font-bold text-gray-600">普段よく使用する端末<select id="standalone-survey-device" class="mt-1 w-full bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm"><option value="">未回答</option><option value="pc">PC</option><option value="smartphone">スマートフォン</option><option value="tablet">タブレット</option><option value="other">その他</option></select></label>
+                    <input id="standalone-survey-device-other" maxlength="40" class="hidden bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="その他の端末">
+                    <label class="text-xs font-bold text-gray-600">どうやってアレオルを知りましたか？<textarea id="standalone-survey-discovery" maxlength="300" rows="3" class="mt-1 w-full bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="自由回答"></textarea></label>
+                    <button onclick="submitStandaloneSurvey()" class="w-full bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold py-3 rounded-xl">回答を送信</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="window-terms" class="window-content space-y-6 hidden">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-sky-100 text-xs text-gray-600 leading-relaxed">
+                <h2 class="text-sm font-bold text-sky-900 mb-3">利用規約</h2>
+                <p class="mb-2">当サイトはAureole Etoileの非公式ファン交流サイトです。投稿内容は健全なコミュニティ運営と改ざん防止のために記録されます。</p>
+                <p>公序良俗に反する投稿、誹謗中傷、荒らし行為が検知された場合、表示制限や削除が行われることがあります。</p>
+            </div>
+            <button data-secret-location="terms" onclick="discoverKeyword('terms', 'い')" class="block ml-auto text-[10px] text-sky-50 hover:text-sky-300 focus:text-sky-300"><span data-secret-hint>・</span><span data-secret-value class="sr-only">クリック</span></button>
+        </section>
+
+        <section id="window-settings" class="window-content hidden space-y-6">
+            <div id="settings-guard" class="hidden bg-white rounded-2xl p-6 shadow-sm border border-red-100 text-center">
+                <h2 class="text-lg font-bold text-red-600">申し訳ありません</h2>
+                <p class="text-sm text-gray-500 mt-2">設定画面を利用するにはサービスアカウントでのログインが必要です。</p>
+                <button onclick="switchWindow('home')" class="mt-4 bg-sky-500 text-white text-xs font-bold px-4 py-2 rounded-lg">ホームへ戻る</button>
+            </div>
+            <div id="settings-password-gate" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-sky-100 space-y-3">
+                <h2 class="text-lg font-bold text-sky-800">設定を開く</h2>
+                <p class="text-xs text-gray-500">本人確認のため、パスワードを入力してください。</p>
+                <input id="settings-gate-password" type="password" class="w-full bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="パスワード">
+                <button onclick="unlockSettingsPanel()" class="w-full bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold py-3 rounded-xl">確認する</button>
+            </div>
+            <div id="settings-panel" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-sky-100 space-y-4">
+                <h2 class="text-lg font-bold text-sky-800">ユーザー設定</h2>
+                <label class="text-xs font-bold text-gray-600">表示名前<input id="settings-display-name" type="text" maxlength="40" class="mt-1 w-full bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm"></label>
+                <div>
+                    <div class="flex items-center justify-between">
+                        <p class="text-xs font-bold text-gray-600">会員ID</p>
+                        <button id="settings-member-id-clear" onclick="clearSettingsMemberId()" class="hidden text-[11px] text-red-500 hover:text-red-700 font-bold">削除</button>
+                    </div>
+                    <div class="mt-1 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
+                        <input id="settings-member-id-1" type="text" maxlength="4" class="settings-member-id-part uppercase text-center bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="XXXX">
+                        <span class="text-gray-400">-</span>
+                        <input id="settings-member-id-2" type="text" maxlength="4" class="settings-member-id-part uppercase text-center bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="XXXX">
+                        <span class="text-gray-400">-</span>
+                        <input id="settings-member-id-3" type="text" maxlength="4" class="settings-member-id-part uppercase text-center bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="XXXX">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-600">アイコン画像<input id="settings-icon-file" type="file" accept="image/png,image/jpeg,image/webp" class="mt-1 w-full bg-sky-50/50 border border-sky-100 rounded-lg px-3 py-2 text-sm"></label>
+                </div>
+                <div class="grid gap-2 rounded-xl border border-sky-100 bg-sky-50/40 p-3">
+                    <p class="text-xs font-bold text-gray-600">パスワード変更</p>
+                    <input id="settings-old-password" type="password" maxlength="80" class="bg-white border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="旧パスワード">
+                    <input id="settings-new-password" type="password" minlength="8" maxlength="80" class="bg-white border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="新パスワード">
+                    <input id="settings-new-password-confirm" type="password" minlength="8" maxlength="80" class="bg-white border border-sky-100 rounded-lg px-3 py-2 text-sm" placeholder="新パスワードを再入力">
+                </div>
+                <button onclick="saveUserSettings()" class="w-full bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold py-3 rounded-xl">保存する</button>
+            </div>
+        </section>
+
+        <section id="window-contact" class="window-content hidden max-w-2xl mx-auto p-4 space-y-4">
+            <h2 class="text-lg font-bold text-sky-800 border-b pb-2"><i class="fas fa-envelope mr-2"></i>お問い合わせ</h2>
+            <button class="w-full text-left bg-white border border-sky-100 rounded-2xl p-5 shadow-sm hover:border-sky-300 transition-colors">
+                <span class="block text-sm font-bold text-sky-800">配信・企画に関するお問い合わせ</span>
+                <span class="block text-xs text-gray-500 mt-1">配信内容、企画案、ファン活動に関するご連絡はこちらです。</span>
+            </button>
+            <button class="w-full text-left bg-white border border-amber-100 rounded-2xl p-5 shadow-sm hover:border-amber-300 transition-colors">
+                <span class="block text-sm font-bold text-amber-700">企業・団体のご担当者さまへ</span>
+                <span class="block text-xs text-gray-500 mt-1">案件、コラボレーション、取材などのご相談はこちらです。</span>
+            </button>
+            <button class="w-full text-left bg-white border border-rose-100 rounded-2xl p-5 shadow-sm hover:border-rose-300 transition-colors">
+                <span class="block text-sm font-bold text-rose-700">本サイトの不具合・ご意見</span>
+                <span class="block text-xs text-gray-500 mt-1">表示崩れ、ログイン不具合、改善要望などをお知らせください。</span>
+            </button>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+    <script src="StarRunner.js"></script>
+</body>
+</html>

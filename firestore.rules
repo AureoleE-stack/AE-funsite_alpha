@@ -1,0 +1,137 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/userRoles/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.role
+        : "general";
+    }
+
+    function isAdmin() {
+      return role() == "admin";
+    }
+
+    function isAureoleOrAdmin() {
+      return role() == "aureole" || role() == "admin";
+    }
+
+    function canDeletePost() {
+      return role() == "fan" || role() == "aureole" || role() == "admin";
+    }
+
+    function hasServiceAccount() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/memberProfiles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/memberProfiles/$(request.auth.uid)).data.googleUid == request.auth.uid
+        && get(/databases/$(database)/documents/memberProfiles/$(request.auth.uid)).data.email == request.auth.token.email;
+    }
+
+    match /userRoles/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update: if isAdmin()
+        || (
+          signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(["role", "grantedByInvite", "grantedAt"])
+          && request.resource.data.grantedByInvite is string
+          && exists(/databases/$(database)/documents/roleInvites/$(request.resource.data.grantedByInvite))
+          && get(/databases/$(database)/documents/roleInvites/$(request.resource.data.grantedByInvite)).data.used == false
+          && get(/databases/$(database)/documents/roleInvites/$(request.resource.data.grantedByInvite)).data.role == request.resource.data.role
+          && getAfter(/databases/$(database)/documents/roleInvites/$(request.resource.data.grantedByInvite)).data.used == true
+          && getAfter(/databases/$(database)/documents/roleInvites/$(request.resource.data.grantedByInvite)).data.usedBy == request.auth.uid
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /users/{uid} {
+      allow read, create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if isAdmin();
+    }
+
+    match /memberProfiles/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.googleUid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 40;
+      allow list: if isAureoleOrAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /registrationSurveys/{surveyId} {
+      allow read, create, update: if signedIn() && request.auth.token.email == surveyId;
+      allow list: if isAureoleOrAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /roleInvites/{code} {
+      allow get: if signedIn();
+      allow list: if isAureoleOrAdmin();
+      allow create, delete: if isAureoleOrAdmin();
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.used == false
+          && (!("allowedEmail" in resource.data) || resource.data.allowedEmail == request.auth.token.email)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["used", "usedBy", "usedAt"])
+          && request.resource.data.used == true
+          && request.resource.data.usedBy == request.auth.uid
+        );
+    }
+
+    match /announcements/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAureoleOrAdmin();
+    }
+
+    match /events/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAureoleOrAdmin();
+    }
+
+    match /xPosts/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAureoleOrAdmin();
+    }
+
+    match /gameScripts/{id} {
+      allow read, create, update, delete: if isAureoleOrAdmin();
+    }
+
+    match /opsLogs/{id} {
+      allow read, create: if isAureoleOrAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if hasServiceAccount()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 200
+        && request.resource.data.url is string
+        && request.resource.data.url.size() <= 1000
+        && (
+          request.resource.data.url.matches('^https://(www\\.|m\\.|music\\.)?youtube\\.com/(watch|shorts|live).*')
+          || request.resource.data.url.matches('^https://youtu\\.be/[A-Za-z0-9_-]+.*')
+        );
+
+      allow delete: if signedIn() && canDeletePost();
+
+      allow update: if hasServiceAccount()
+        && (
+          canDeletePost()
+          || request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["deleteRequestedBy", "requests", "deletedByRequests", "deletedAt", "likedBy", "likeCount", "replies", "replyCount", "hiddenReplies", "hiddenReplyCount"])
+        );
+    }
+  }
+}
