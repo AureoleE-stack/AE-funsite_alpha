@@ -1,12 +1,13 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyBnRsXmC5ipLuYFP5Tl4R198g1lzJSujug",
-  authDomain: "sample-testae.firebaseapp.com",
-  projectId: "sample-testae",
-  storageBucket: "sample-testae.firebasestorage.app",
-  messagingSenderId: "914218850618",
-  appId: "1:914218850618:web:43d736a3071f739b905803",
-  measurementId: "G-FNW1TGW9B9"
+  apiKey: "AIzaSyAKdS2q1eYNIHnsPyWD3J62F6_J61-CT1Y",
+  authDomain: "ae-funsite.firebaseapp.com",
+  projectId: "ae-funsite",
+  storageBucket: "ae-funsite.firebasestorage.app",
+  messagingSenderId: "941443760137",
+  appId: "1:941443760137:web:723b62cafb82f14c8278d8",
+  measurementId: "G-Y1L6XN0PJC"
 };
+
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
